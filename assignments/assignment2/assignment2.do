@@ -3,12 +3,16 @@ clear
 clear matrix
 clear mata
 
+ssc install ftools
+ssc install hdfe
 ssc install reghdfe
 ssc install ppml
 ssc install poi2hdfe
 ssc install ppmlhdfe
 ssc install estout
 
+
+global table_1 = "off"
 
 set maxvar 32000
 set matsize  11000
@@ -33,6 +37,7 @@ replace log_flow_xjj = log(xjj / 10^12) if flow == 0
 ***********************
 **  Table 1
 ***********************
+if ("${table_1}" == "on") {
 preserve
 drop if flow == 0
 
@@ -83,7 +88,7 @@ esttab using ./out/table_1_`dep'.tex, se r2 ///
 }
 
 restore
-
+}
 ***********************
 **  Table 2
 ***********************
@@ -99,28 +104,50 @@ local ys log_flow log_flow_plus_1 ///
 local i 1
 	  
 foreach y of local ys {
-    if `i' == 3 { 
-	restore 
-    }
-    timer on 1git
-    qui reg `y' log_d i.home_id i.work_id
+
+    timer on 1
+    qui reghdfe `y' log_d, absorb(home_id work_id)
     timer off 1
     qui timer list
     eststo , add(time r(t1))
     
-    if `i' == 1 {
-	predict resid, residuals
-	scatter resid log_d if flow > 0
+    if (`i' == 1) {
+	qui reghdfe `y' log_d, absorb(home_id work_id) residuals(res_hdfe)
+	scatter res_hdfe log_flow
 	graph export ./out/resid_plot.png, replace
+    }
+    
+    if (`i' == 2) { 
+	restore 
     }
     
     local i `i' + 1
 }
 
+timer on 1
+qui poi2hdfe flow log_d, id1(home_id) id2(work_id)
+timer off 1
+qui timer list
+eststo , add(time r(t1))
 
-* poi2hdfe flow log_d, id1(home_id) id2(work_id)
 
-* ppmlehdfe
+timer on 1
+qui ppmlhdfe flow log_d, absorb(home_id work_id)
+timer off 1
+qui timer list
+eststo , add(time r(t1))
 
-* ppmlhdfe , if flow > 0
-//
+timer on 1
+qui ppmlhdfe flow log_d if flow > 0, absorb(home_id work_id) 
+timer off 1
+qui timer list
+eststo , add(time r(t1))
+
+esttab using ./out/table_2.tex, se r2 /// 
+    keep(log_d) nostar ///
+    mtitles("log(flow) (no zeros)" "log(flow + 1)(no zeros)" ///
+    "log(flow + 1)" "log(flow + .01)" "log(flow | x_jj/10^12)" ///
+    "poi2hdfe" "ppmlhdfe" "ppmlhdfe (no zeros)") ///
+    title("Table 2") ///
+    scalars(time) sfmt(%8.2f) replace
+

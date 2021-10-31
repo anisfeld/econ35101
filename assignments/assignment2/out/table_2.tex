@@ -1,0 +1,17 @@
+\begin{table}[htbp]\centering
+\caption{Table 2}
+\begin{tabular}{l*{8}{c}}
+\hline\hline
+            &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}&\multicolumn{1}{c}{(5)}&\multicolumn{1}{c}{(6)}&\multicolumn{1}{c}{(7)}&\multicolumn{1}{c}{(8)}\\
+            &\multicolumn{1}{c}{log(flow) (no zeros)}&\multicolumn{1}{c}{log(flow + 1)(no zeros)}&\multicolumn{1}{c}{log(flow + 1)}&\multicolumn{1}{c}{log(flow + .01)}&\multicolumn{1}{c}{log(flow | x\_jj/10^12)}&\multicolumn{1}{c}{poi2hdfe}&\multicolumn{1}{c}{ppmlhdfe}&\multicolumn{1}{c}{ppmlhdfe (no zeros)}\\
+\hline
+log\_d       &      -0.407&      -0.309&      -0.328&      -1.057&      -4.563&      -0.372&      -0.372&      -0.280\\
+            &   (0.00120)&  (0.000891)&  (0.000586)&   (0.00243)&    (0.0125)&   (0.00306)&   (0.00306)&   (0.00190)\\
+\hline
+\(N\)       &      358159&      358159&     1352569&     1352569&     1251687&     1350243&     1350243&      358159\\
+\(R^{2}\)   &       0.502&       0.516&       0.526&       0.429&       0.407&            &            &            \\
+time        &     2308.53&     2311.41&     2320.30&     2329.20&     2338.06&     2574.51&     2953.01&     2966.66\\
+\hline\hline
+\multicolumn{9}{l}{\footnotesize Standard errors in parentheses}\\
+\end{tabular}
+\end{table}
