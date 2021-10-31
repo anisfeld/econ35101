@@ -35,20 +35,20 @@ replace log_flow_xjj = log(xjj / 10^12) if flow == 0
 ***********************
 preserve
 drop if flow == 0
-local dep = log_d
-foreach dep in log_d log_time{
+
+foreach dep in log_d log_time {
 
 eststo clear
 timer clear
 timer on 1
-qui reg log_flow `dep' i.home_id i.work_id, vce(robust)
+qui reg log_flow `dep' i.home_id i.work_id //, vce(robust)
 timer off 1
 qui timer list
 eststo , add(time r(t1))
 
 timer on 2
 xtset home_id work_id
-qui xtreg log_flow `dep' i.work_id, fe vce(robust)
+qui xtreg log_flow `dep' i.work_id, fe // vce(robust)
 timer off 2
 qui timer list
 eststo , add(time r(t2))
@@ -61,21 +61,18 @@ timer on 3
 * areg log_flow, absorb(home_id)
 * predict log_flow_tilde, residuals
 * eststo: areg log_flow_tilde log_d_tilde, absorb(work_id) vce(robust) 
-qui areg log_flow `dep' i.home_id, absorb(work_id) vce(robust)
+qui areg log_flow `dep' i.home_id, absorb(work_id) // vce(robust)
 timer off 3
 qui timer list
 eststo , add(time r(t3))
 
 
-
-eststo clear
 timer clear
 timer on 4
-qui reghdfe log_flow `dep', abs(home_id work_id) vce(robust)
+qui reghdfe log_flow `dep', absorb(home_id work_id) // vce(robust)
 timer off 4
 qui timer list
 eststo , add(time r(t4))
-
 
 
 esttab using ./out/table_1_`dep'.tex, se r2 /// 
@@ -90,8 +87,40 @@ restore
 ***********************
 **  Table 2
 ***********************
+
 eststo clear
+preserve
+drop if flow == 0
+
+local ys log_flow log_flow_plus_1 ///
+           log_flow_plus_1 log_flow_plus_eps ///
+	   log_flow_xjj
+	  
+local i 1
+	  
+foreach y of local ys {
+    if `i' == 3 { 
+	restore 
+    }
+    timer on 1git
+    qui reg `y' log_d i.home_id i.work_id
+    timer off 1
+    qui timer list
+    eststo , add(time r(t1))
+    
+    if `i' == 1 {
+	predict resid, residuals
+	scatter resid log_d if flow > 0
+	graph export ./out/resid_plot.png, replace
+    }
+    
+    local i `i' + 1
+}
 
 
+* poi2hdfe flow log_d, id1(home_id) id2(work_id)
 
-ppmlhdfe distance_google_miles flow, abs(home_id work_id)
+* ppmlehdfe
+
+* ppmlhdfe , if flow > 0
+//
