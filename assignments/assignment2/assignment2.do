@@ -1,51 +1,97 @@
+* Assignment 2 -- Gravity many ways
 clear
+clear matrix
 clear mata
-set matsize 10000
-set maxvar 32000
-ssc install ftools
+
 ssc install reghdfe
 ssc install ppml
 ssc install poi2hdfe
 ssc install ppmlhdfe
+ssc install estout
 
+
+set maxvar 32000
+set matsize  11000
+* Jordan change this!
 cd ~/econ35101/assignments/assignment2/
 
-import delimited data/Detroit.csv
+import delimited data/Detroit.csv, clear
 
-gen log_distance = log(distance_google_miles)
+* munge data
+gen log_d = log(distance_google_miles)
 gen log_time = log(duration_minutes)
 gen log_flow = log(flow) if flow > 0
-reg log_flow log_distance i.home_id i.work_id if flow > 0, vce(robust)
-* matches -.40716 
-
-xtset home_id work_id
-xtreg log_flow log_distance if flow > 0, fe vce(robust)
-
-areg log_flow if flow > 0, absorb(home_id)
-predict resid_flow, residuals
-areg log_distance if flow > 0, absorb(home_id)
-predict resid_distance, residuals
-areg resid_flow resid_distance if flow > 0, absorb(work_id) vce(robust)
-
-reghdfe log_flow log_distance if flow > 0, absorb(home_id work_id) vce(robust)
-
-************************
-* zeros
-************************
 
 gen log_flow_plus_1 = log(flow + 1)
-gen log_flow_plus_eps = log(flow + 0.01)
-egen x_jj = max((home_id == work_id) * flow)), by(work_id)
-gen log_flow_x_jj = flow
-replace log_flow_x_jj = x_jj*10e-12 if flow == 0
+gen log_flow_plus_eps = log(flow + .01)
 
-*1
-reghdfe log_flow log_distance if flow > 0, absorb(home_id work_id) vce(robust)
-*2
-reghdfe log_flow_plus_1 log_distance if flow > 0, absorb(home_id work_id) vce(robust)
-*3
-reghdfe log_flow_plus_1 log_distance, absorb(home_id work_id) vce(robust)
-*4
-reghdfe log_flow_plus_eps log_distance, absorb(home_id work_id) vce(robust)
-*5 take ij to imply i-> j
-reghdfe log_flow_x_jj log_distance, absorb(home_id work_id) vce(robust)
+
+egen xjj = max((home_id == work_id) * flow), by(home_id)
+gen log_flow_xjj = log(flow) 
+replace log_flow_xjj = log(xjj / 10^12) if flow == 0
+
+***********************
+**  Table 1
+***********************
+preserve
+drop if flow == 0
+local dep = log_d
+foreach dep in log_d log_time{
+
+eststo clear
+timer clear
+timer on 1
+qui reg log_flow `dep' i.home_id i.work_id, vce(robust)
+timer off 1
+qui timer list
+eststo , add(time r(t1))
+
+timer on 2
+xtset home_id work_id
+qui xtreg log_flow `dep' i.work_id, fe vce(robust)
+timer off 2
+qui timer list
+eststo , add(time r(t2))
+
+timer on 3 
+* Though a FWL argument suggest this should work, the point estimate is 
+* off by roughly .005, perhaps due to rounding errors.
+* areg log_d, absorb(home_id)
+* predict log_d_tilde, residuals
+* areg log_flow, absorb(home_id)
+* predict log_flow_tilde, residuals
+* eststo: areg log_flow_tilde log_d_tilde, absorb(work_id) vce(robust) 
+qui areg log_flow `dep' i.home_id, absorb(work_id) vce(robust)
+timer off 3
+qui timer list
+eststo , add(time r(t3))
+
+
+
+eststo clear
+timer clear
+timer on 4
+qui reghdfe log_flow `dep', abs(home_id work_id) vce(robust)
+timer off 4
+qui timer list
+eststo , add(time r(t4))
+
+
+
+esttab using ./out/table_1_`dep'.tex, se r2 /// 
+    keep(`dep') nostar ///
+    mtitles("reg" "xtreg" "areg" "reghdfe") ///
+    title("Table 1:`dep' on log Flow, with Flow > 0") ///
+    scalars(time) sfmt(%8.2f) replace
+}
+
+restore
+
+***********************
+**  Table 2
+***********************
+eststo clear
+
+
+
+ppmlhdfe distance_google_miles flow, abs(home_id work_id)
