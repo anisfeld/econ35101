@@ -50,6 +50,8 @@ qui reg log_flow `dep' i.home_id i.work_id //, vce(robust)
 timer off 1
 qui timer list
 eststo , add(time r(t1))
+* for part 2
+hettest
 
 timer on 2
 xtset home_id work_id
@@ -58,14 +60,14 @@ timer off 2
 qui timer list
 eststo , add(time r(t2))
 
-timer on 3 
+timer on 3
 * Though a FWL argument suggest this should work, the point estimate is 
 * off by roughly .005, perhaps due to rounding errors.
 * areg log_d, absorb(home_id)
 * predict log_d_tilde, residuals
 * areg log_flow, absorb(home_id)
 * predict log_flow_tilde, residuals
-* eststo: areg log_flow_tilde log_d_tilde, absorb(work_id) vce(robust) 
+* areg log_flow_tilde log_d_tilde, absorb(work_id) vce(robust) 
 qui areg log_flow `dep' i.home_id, absorb(work_id) // vce(robust)
 timer off 3
 qui timer list
@@ -104,7 +106,7 @@ local ys log_flow log_flow_plus_1 ///
 local i 1
 	  
 foreach y of local ys {
-
+    timer clear
     timer on 1
     qui reghdfe `y' log_d, absorb(home_id work_id)
     timer off 1
@@ -113,41 +115,53 @@ foreach y of local ys {
     
     if (`i' == 1) {
 	qui reghdfe `y' log_d, absorb(home_id work_id) residuals(res_hdfe)
-	scatter res_hdfe log_flow
+	predict yhat, xb
+	scatter res_hdfe yhat
 	graph export ./out/resid_plot.png, replace
     }
     
     if (`i' == 2) { 
 	restore 
-    }
+    }		
     
     local i `i' + 1
 }
 
-timer on 1
+
+timer on 2
 qui poi2hdfe flow log_d, id1(home_id) id2(work_id)
-timer off 1
+timer off 2
 qui timer list
-eststo , add(time r(t1))
+eststo , add(time r(t2))
 
 
-timer on 1
+timer on 3
 qui ppmlhdfe flow log_d, absorb(home_id work_id)
-timer off 1
+timer off 3
 qui timer list
-eststo , add(time r(t1))
+eststo , add(time r(t3))
 
-timer on 1
+timer on 4
 qui ppmlhdfe flow log_d if flow > 0, absorb(home_id work_id) 
-timer off 1
+timer off 4
 qui timer list
-eststo , add(time r(t1))
+eststo , add(time r(t4))
 
-esttab using ./out/table_2.tex, se r2 /// 
-    keep(log_d) nostar ///
-    mtitles("log(flow) (no zeros)" "log(flow + 1)(no zeros)" ///
-    "log(flow + 1)" "log(flow + .01)" "log(flow | x_jj/10^12)" ///
-    "poi2hdfe" "ppmlhdfe" "ppmlhdfe (no zeros)") ///
-    title("Table 2") ///
-    scalars(time) sfmt(%8.2f) replace
+timer clear
+timer on 4
+qui reghdfe log_flow `dep', absorb(home_id work_id) // vce(robust)
+timer off 4
+qui timer list
+eststo , add(time r(t4))
+
+******
+preserve
+
+timer clear
+timer on 4
+qui reghdfe log_flow log_d, absorb(home_id work_id) vce(robust)
+timer off 4
+qui timer list
+eststo , add(time r(t4))
+
 
